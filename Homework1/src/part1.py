@@ -29,39 +29,45 @@ def noiseGenerator(xlist, mean, sigma):
     return output
 
 # Model training
+# 1. Choose 𝑁t to be 1000.
+# 2. In your training data add some noise to 𝑦_i’s from a normal distribution with 𝜇 = 0.0 and 𝜎 = 0.001.
+
 Nt = 1000
 Nv = 1000
 noiseMean = 0.0
 noiseStddev = 0.001
 
 xt = np.random.random((Nt, 8)).tolist() # Training Input array
-print("xt Element: ", xt[0])
-
 yt = dataGenerator(xt, function, Nt)    # Training Output array
-print("yt Element: ", yt[0])
-
 yt = noiseGenerator(yt, noiseMean, noiseStddev)
-print("yt Noise Add: ", yt[0])
 
 xv = np.random.random((Nv, 8)).tolist() # Validation Input array
 yv = dataGenerator(xv, function, Nv)    # Validation Output array
-yv = noiseGenerator(yv, noiseMean, noiseStddev)
 
-# Build the model
+# 3. Build a feed forward network with exactly 3 hidden layers:
+# * Each layer should include exactly 6 nodes in the beginning.
+# * Use a combination of activation functions in these layers (use the same activation for each node at a given layer).
+# 4. Define your loss function:
+# * Use MSE for loss function.
+# 5. Train your algorithm with SGD.
+# * Use appropriate learning rates and the number of epochs.
+# * Report the training and validation errors.
+
+epochs = 100
+learningRate = 0.05
 model = Sequential()
-model.add(Dense(6, input_shape=(8,), activation='relu'))
+
+model.add(Dense(6, input_shape=(8,), activation='relu')) 
 model.add(Dense(6, activation='relu'))
 model.add(Dense(6, activation='relu'))
 
-model.add(Dense(6, activation='linear'))
+model.add(Dense(6, activation='linear')) # Output layer : 6 neuron, linear
 
-# Compile the model
-learningRate = 0.001
+# Compile 
 sgd = SGD(learning_rate=learningRate)
 model.compile(optimizer=sgd, loss='mse', metrics=['mse'])
 
-# Train the model
-epochs = 100
+# Train
 history = model.fit(
     np.array(xt), 
     np.array(yt), 
@@ -71,17 +77,16 @@ history = model.fit(
     verbose=1
 )
 
-# Evaluate performance
-train_loss, train_mse = model.evaluate(np.array(xt), np.array(yt), verbose=0)
-val_loss, val_mse = model.evaluate(np.array(xv), np.array(yv), verbose=0)
-
-print(f"Training Loss: {train_loss:.4f}, Training MSE: {train_mse:.4f}")
-print(f"Validation Loss: {val_loss:.4f}, Validation MSE: {val_mse:.4f}")
-
-# Plot training & validation mse values
-plt.plot(history.history['mse'], label='Training MSE')
-plt.plot(history.history['val_mse'], label='Validation MSE')
+# Plot
+plt.plot(history.history['mse'], label='Training Sample', color ='cyan')
+plt.plot(history.history['val_mse'], label='Test Sample', color ='orange')
 plt.xlabel('Epochs')
-plt.ylabel('Mean Squared Error')
+plt.ylabel('Prediction Error MSE')
 plt.legend()
 plt.show()
+
+# 6. Repeat Steps 2-4 with another set of activation functions (3 different combinations), learning
+# rates (3 different schemes) and number of epochs (after finding a reasonable number of
+# epochs in the first trial, increase by 50% for 2 times).
+
+# 7. Choose your best parameters after Step 5.
