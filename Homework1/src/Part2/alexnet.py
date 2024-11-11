@@ -82,7 +82,7 @@ model.summary()
 # Training the model with updated steps per epoch
 history = model.fit(
     trainDataset,
-    epochs=12,
+    epochs=100,
     validation_data=validationDataset,
 )
 
