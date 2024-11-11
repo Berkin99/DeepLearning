@@ -3,7 +3,7 @@ from tensorflow.keras import layers, models, utils
 from tensorflow.keras.optimizers import Adam
 
 # Dataset path
-datasetPath = "C:/Users/User/Desktop/YeniaySrc/WorkspaceAI/DeepLearning/Homework1/src/Part2/dataset"
+datasetPath = "Homework1/src/Part2/dataset"
 
 batchSize = 32
 imgSize = (128, 128)
@@ -41,8 +41,8 @@ validationDataset = utils.image_dataset_from_directory(
 validationDataset.repeat()
 
 # Calculate the number of steps per epoch based on the dataset size
-steps_per_epoch = trainDataset.cardinality() // batchSize
-validation_steps = validationDataset.cardinality() // batchSize
+steps_per_epoch = int(trainDataset.cardinality().numpy() // batchSize)
+validation_steps = int(validationDataset.cardinality().numpy() // batchSize)
 
 # AlexNet Model
 model = models.Sequential()
@@ -80,11 +80,15 @@ model.add(layers.Dropout(0.5))
 # Output layer: 8 classes (assuming 8 shape classes)
 model.add(layers.Dense(8, activation='softmax'))  # Softmax for multi-class classification
 
+# Set the learning rate
+learning_rate = 0.0002
+
 # Compile model
-model.compile(optimizer=Adam(), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer=Adam(learning_rate=learning_rate), 
+              loss='sparse_categorical_crossentropy', 
+              metrics=['accuracy'])
 
 model.save('./model.h5')
-
 # Model summary to check the architecture
 model.summary()
 
@@ -92,7 +96,7 @@ model.summary()
 history = model.fit(
     trainDataset,
     steps_per_epoch=steps_per_epoch,
-    epochs=500,
+    epochs=1000,
     validation_data=validationDataset,
     validation_steps=validation_steps
 )

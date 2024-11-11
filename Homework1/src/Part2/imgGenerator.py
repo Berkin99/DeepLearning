@@ -4,7 +4,7 @@ import os
 import subprocess
 import random
 
-generatorPath = 'C:\Users\User\Desktop\YeniaySrc\WorkspaceAI\DeepLearning\Homework1\src\Part2\2D-Shape-Generator\main.py'
+generatorPath = 'C:/Users/berki/Desktop/YeniaySrc/WorkspaceAI/DeepLearning/Homework1/src/Part2/2D-Shape-Generator/main.py'
 
 def generate(inx:int, shape:str, pixels:int, movex:int, movey:int, rot:float, scalex:float, scaley:float):
     
@@ -30,10 +30,11 @@ def generateRandom(inx:int, shape:str,  pixels = 128, bias = 30, minScale = 0.5,
         scalex=random.uniform(minScale, maxScale), scaley=random.uniform(minScale, maxScale) 
         )
 
+
 def main():
     # Komut satırı argümanlarını al
     args = sys.argv[1:]  # sys.argv[0] dosya adı olduğu için ondan sonrasını alıyoruz
-    
+
     if len(args) < 2:
         print("Not enough arguments") 
         return
