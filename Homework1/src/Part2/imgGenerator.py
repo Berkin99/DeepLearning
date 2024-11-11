@@ -20,20 +20,32 @@ def generate(inx:int, shape:str, pixels:int, movex:int, movey:int, rot:float, sc
     ]
     subprocess.run(args)
 
-def generateRandom(inx:int, shape:str,  pixels = 128, bias = 30, minScale = 0.5, maxScale = 2.0):
+def generateRandom(inx:int, shape:str,  pixels = 128, posSigma = 20, maxscale = 2.5, scaleSigma=0.2):
+
+    mx = int(random.gauss(pixels / 2, posSigma))
+    my = int(random.gauss(pixels / 2, posSigma))
+    mx = min(max(mx, 0), pixels)
+    my = min(max(my, 0), pixels)
+    
+    mscl = random.uniform(0.5,maxscale)
+    scx = random.gauss(mscl, scaleSigma)
+    scy = random.gauss(mscl, scaleSigma)
+    scx = max(scx, 0)
+    scy = max(scy, 0)
+    
     generate(
         inx=inx, 
         shape=shape, 
         pixels=pixels,
-        movex=random.randint(bias,pixels-bias), movey=random.randint(bias,pixels-bias),
+        movex=mx, movey=my,
         rot=random.uniform(0, 360),
-        scalex=random.uniform(minScale, maxScale), scaley=random.uniform(minScale, maxScale) 
+        scalex=scx, scaley=scy 
         )
 
 
 def main():
-    # Komut satırı argümanlarını al
-    args = sys.argv[1:]  # sys.argv[0] dosya adı olduğu için ondan sonrasını alıyoruz
+
+    args = sys.argv[1:]  
 
     if len(args) < 2:
         print("Not enough arguments") 
