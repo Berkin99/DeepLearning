@@ -1,7 +1,7 @@
 import csv
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.keras import layers, models
+from tensorflow.keras import layers, models, optimizers
 import numpy as np
 
 class Data1D:
@@ -55,7 +55,7 @@ close_norm = Data1D("Close", tsla_close).normalized()
 
 data = np.array([open_norm, high_norm, low_norm, close_norm]).T
 
-def create_multivariate_sequences(data, time_step=10):
+def sequencer(data, time_step=10):
     X, y = [], []
     for i in range(len(data) - time_step):
         X.append(data[i:i + time_step])
@@ -63,10 +63,10 @@ def create_multivariate_sequences(data, time_step=10):
     return np.array(X), np.array(y)
 
 # Time interval
-time_step = 100
+time_step = 20
 
 # Sequenced data
-X, y = create_multivariate_sequences(data, time_step)
+X, y = sequencer(data, time_step)
 
 # Training & Validation sets (%70 train, %30 validate)
 split_index = int(0.7 * len(X))
@@ -82,7 +82,7 @@ model = models.Sequential([
 ])
 
 # Compile
-model.compile(optimizer="adam", loss="mean_squared_error")
+model.compile(loss='mse', optimizer=optimizers.Adam(learning_rate = 0.001))
 
 # Model Train
 history = model.fit(
