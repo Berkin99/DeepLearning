@@ -1,127 +1,104 @@
-import csv
-import matplotlib.pyplot as plt
-import tensorflow as tf
-from tensorflow.keras import layers, models, optimizers
+import pandas as pd
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+import tensorflow as tf
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, LayerNormalization, MultiHeadAttention, Dropout, GlobalAveragePooling1D
+from sklearn.metrics import mean_squared_error
+import math
+import matplotlib.pyplot as plt
 
-class Data1D:
-    def __init__(self, name:str, data:list):
-        self.name = name
-        self.data = data
-        self.max_x = max(data)
-        self.min_x = min(data)
+# Load and prepare the dataset
+file_path = 'TSLA.csv'  # Make sure to have your dataset ready
+df = pd.read_csv(file_path)
+data = df[['Close']].values
+scaler = MinMaxScaler(feature_range=(0, 1))
+data_scaled = scaler.fit_transform(data)
 
-    def normalized(self)->list:
-        return [(x - self.min_x) / (self.max_x - self.min_x) for x in self.data]
+def create_dataset(dataset, time_step=1):
+    dataX, dataY = [], []
+    for i in range(len(dataset) - time_step - 1):
+        a = dataset[i:(i + time_step), 0]
+        dataX.append(a)
+        dataY.append(dataset[i + time_step, 0])
+    return np.array(dataX), np.array(dataY)
 
-    def denormalize(self, new:list)->list:
-        return [x * (self.max_x - self.min_x) + self.min_x for x in new]
+# Parameters
+time_step = 100
+training_size = int(len(data_scaled) * 0.67)
+test_size = len(data_scaled) - training_size
+train_data, test_data = data_scaled[0:training_size,:], data_scaled[training_size:len(data_scaled),:]
 
-# Extract the data
-dates = []
-tsla_open = []
-tsla_high = []
-tsla_low = []
-tsla_close = []
-tsla_adj = []
-tsla_volume = []
+X_train, y_train = create_dataset(train_data, time_step)
+X_test, y_test = create_dataset(test_data, time_step)
 
-with open("Homework3 - TSLA.csv", "r") as file:
-    reader = csv.reader(file)
-    next(reader)
-    for row in reader:
-        dates.append(row[0])
-        tsla_open.append(float(row[1]))
-        tsla_high.append(float(row[2]))
-        tsla_low.append(float(row[3]))
-        tsla_close.append(float(row[4]))
-        tsla_adj.append(float(row[5]))
-        tsla_volume.append(float(row[6]))
+# Reshape input for the model
+X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
 
-tsla = {
-    "Open"   : Data1D("Open", tsla_open),
-    "Close"  : Data1D("Close", tsla_close),
-    "High"   : Data1D("High", tsla_high),
-    "Low"    : Data1D("Low", tsla_low),
-    "Adj"    : Data1D("Adj", tsla_adj),
-    "Volume" : Data1D("Volume", tsla_volume)
-}
+# Transformer Block
+def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
+    x = LayerNormalization(epsilon=1e-6)(inputs)
+    x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(x, x)
+    x = Dropout(dropout)(x)
+    res = x + inputs
 
-# Normalized
-open_norm = Data1D("Open", tsla_open).normalized()
-high_norm = Data1D("High", tsla_high).normalized()
-low_norm = Data1D("Low", tsla_low).normalized()
-close_norm = Data1D("Close", tsla_close).normalized()
+    x = LayerNormalization(epsilon=1e-6)(res)
+    x = Dense(ff_dim, activation="relu")(x)
+    x = Dropout(dropout)(x)
+    x = Dense(inputs.shape[-1])(x)
+    return x + res
 
-data = np.array([open_norm, high_norm, low_norm, close_norm]).T
+# Model Definition
+inputs = Input(shape=(X_train.shape[1], X_train.shape[2]))
+x = transformer_encoder(inputs, head_size=256, num_heads=4, ff_dim=4, dropout=0.1)
+x = GlobalAveragePooling1D(data_format='channels_first')(x)
+x = Dropout(0.1)(x)
+x = Dense(20, activation="relu")(x)
+outputs = Dense(1, activation="linear")(x)
 
-def sequencer(data, time_step=10):
-    X, y = [], []
-    for i in range(len(data) - time_step):
-        X.append(data[i:i + time_step])
-        y.append(data[i + time_step, -1])  # Network output : Close values
-    return np.array(X), np.array(y)
+model = Model(inputs=inputs, outputs=outputs)
+model.compile(optimizer="adam", loss="mean_squared_error")
 
-# Time interval
-time_step = 20
+# Model Summary
+model.summary()
 
-# Sequenced data
-X, y = sequencer(data, time_step)
+# Train the model
+model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=50, batch_size=64, verbose=1)
 
-# Training & Validation sets (%70 train, %30 validate)
-split_index = int(0.7 * len(X))
-X_train, X_val = X[:split_index], X[split_index:]
-y_train, y_val = y[:split_index], y[split_index:]
+# Make predictions
+train_predict = model.predict(X_train)
+test_predict = model.predict(X_test)
 
-model = models.Sequential([
-    layers.Input(shape=(X_train.shape[1], X_train.shape[2])),
-    layers.LSTM(64),
-    layers.Dense(32, activation="relu"),
-    layers.Dense(32, activation="relu"),
-    layers.Dense(1) 
-])
+# Inverse transform predictions
+train_predict = scaler.inverse_transform(train_predict)
+test_predict = scaler.inverse_transform(test_predict)
 
-# Compile
-model.compile(loss='mse', optimizer=optimizers.Adam(learning_rate = 0.001))
+# Evaluate the model (Optional: Calculate RMSE or other metrics)
+train_rmse = math.sqrt(mean_squared_error(y_train, scaler.inverse_transform(train_predict.reshape(-1, 1))))
+test_rmse = math.sqrt(mean_squared_error(y_test, scaler.inverse_transform(test_predict.reshape(-1, 1))))
 
-# Model Train
-history = model.fit(
-    X_train, y_train, 
-    validation_data=(X_val, y_val), 
-    epochs=20, 
-    batch_size=32,
-)
+print(f"Train RMSE: {train_rmse}")
+print(f"Test RMSE: {test_rmse}")
 
-# Predict
-predictions = model.predict(X_val)
+# Plotting the results
+# Adjust the time_step offset for plotting
+trainPredictPlot = np.empty_like(data_scaled)
+trainPredictPlot[:, :] = np.nan
+trainPredictPlot[time_step:len(train_predict)+time_step, :] = train_predict
 
-# Denormalized predictions
-denormalized_predictions = Data1D("Close", tsla_close).denormalize(predictions.flatten())
-denormalized_actual = Data1D("Close", tsla_close).denormalize(y_val)
+# Shift test predictions for plotting
+testPredictPlot = np.empty_like(data_scaled)
+testPredictPlot[:, :] = np.nan
+testPredictPlot[len(train_predict)+(time_step*2)+1:len(data_scaled)-1, :] = test_predict
 
-# Extract loss values
-train_loss = history.history['loss']
-val_loss = history.history['val_loss']
-
-# Plot the losses
-plt.figure(figsize=(10, 6))
-plt.plot(train_loss, label="Training Loss", marker='o')
-plt.plot(val_loss, label="Validation Loss", marker='o')
-plt.title("Model Training and Validation Loss Over Epochs", fontsize=16)
-plt.xlabel("Epochs", fontsize=14)
-plt.ylabel("Loss", fontsize=14)
-plt.legend(fontsize=12)
-plt.grid(True)
-plt.show()
-
-# Plot the denormalized predictions vs actual values
+# Plot baseline and predictions
 plt.figure(figsize=(12, 6))
-plt.plot(denormalized_actual, label="Actual Close Price", color='blue', alpha=0.7)
-plt.plot(denormalized_predictions, label="Predicted Close Price", color='red', alpha=0.7)
-plt.title("Actual vs Predicted Close Prices (Validation Set)", fontsize=16)
-plt.xlabel("Time Steps", fontsize=14)
-plt.ylabel("Close Price", fontsize=14)
-plt.legend(fontsize=12)
-plt.grid(True)
+plt.plot(scaler.inverse_transform(data_scaled), label='Actual Stock Price')
+plt.plot(trainPredictPlot, label='Train Predict')
+plt.plot(testPredictPlot, label='Test Predict')
+plt.title('Stock Price Prediction using Transformer')
+plt.xlabel('Time')
+plt.ylabel('Stock Price')
+plt.legend()
 plt.show()
-
